@@ -1,0 +1,189 @@
+/* 
+Módulo 6
+Aprendizaje esperado 2
+*/
+
+/*
+*****************************************************************************************************
+	Ejercicio 1
+*****************************************************************************************************
+*/
+
+/* a)
+Nuestro primer ejercicio entonces será crear la estructura de la base de
+datos usando SQL. En el modelo podemos apreciar las PK (en negrita), las
+FK (conectadas). Dentro de la tabla cliente, sólo rut y nombre son
+obligatorios (NOT NULL) y el resto es opcional. En las demás tablas, todos
+los datos son obligatorios. Use sólo tipo de datos int, varchar y date
+*/
+
+-- Creación de Base de datos
+CREATE DATABASE supermercado;
+
+-- Creación de las tablas
+CREATE TABLE clientes(
+	rut VARCHAR(10) PRIMARY KEY,
+	nombre VARCHAR(50) NOT NULL,
+	direccion VARCHAR(50),
+	comuna VARCHAR(50),
+	fecha_nacimiento DATE,
+	telefono VARCHAR(9),
+	email VARCHAR(50)
+)
+
+CREATE TABLE boletas(
+	numero SERIAL PRIMARY KEY,
+	fecha DATE NOT NULL,
+	rut_cliente VARCHAR(10) REFERENCES clientes(rut)
+)
+
+CREATE TABLE productos(
+	codigo SERIAL PRIMARY KEY,
+	nombre VARCHAR(50) NOT NULL,
+	precio VARCHAR(50) NOT NULL
+)
+
+CREATE TABLE detalle(
+	numero_boleta INT REFERENCES boletas(numero),
+	codigo_producto INT REFERENCES productos(codigo),
+	cantidad INT NOT NULL
+)
+
+/* b)
+Ahora, agregaremos la información a nuestra estructura, mediante los
+archivos csv adjuntos.
+*/
+
+-- Carga de archivos csv
+
+/*psql
+\copy clientes(rut, nombre, direccion,comuna, fecha_nacimiento, telefono, email) from 'C:\Users\nicon\Documents\Bootcamp Analisis de Datos\Modulo 6 - Lenguaje Estructurado de Consultas a Base de Datos\Aprendizaje esperado 2\Tarea 2\clientes.csv' with csv header
+\copy boletas(numero, fecha, rut_cliente) from 'C:\Users\nicon\Documents\Bootcamp Analisis de Datos\Modulo 6 - Lenguaje Estructurado de Consultas a Base de Datos\Aprendizaje esperado 2\Tarea 2\boletas.csv' with csv header
+\copy productos(codigo, nombre, precio) from 'C:\Users\nicon\Documents\Bootcamp Analisis de Datos\Modulo 6 - Lenguaje Estructurado de Consultas a Base de Datos\Aprendizaje esperado 2\Tarea 2\productos.csv' with csv header
+\copy detalle(numero_boleta, codigo_producto, cantidad) from 'C:\Users\nicon\Documents\Bootcamp Analisis de Datos\Modulo 6 - Lenguaje Estructurado de Consultas a Base de Datos\Aprendizaje esperado 2\Tarea 2\detalle.csv' with csv header
+*/
+
+
+/*
+*****************************************************************************************************
+	Ejercicio 2
+*****************************************************************************************************
+*/
+
+/* a)
+Creación de Bases de Datos PRUEBA.
+*/
+CREATE DATABASE prueba;
+
+/* b)
+Creación de cada tabla del diagrama, considerara claves y demás.
+*/
+CREATE TABLE regions(
+	id INT PRIMARY KEY,
+	name VARCHAR(25) NOT NULL
+);
+
+/* El siguiente codigo crearía la tabla countries, la cual 
+no está dentro de los archivos enviados, se deja comentado
+y se quita la llave foranea que referencia al id de esta tabla
+en locations para no incurrir en problemas de ejecucion.
+
+CREATE TABLE countries(
+	id CHAR(2) PRIMARY KEY,
+	name VARCHAR(40),
+	region INT REFERENCES regions(id)
+);
+
+*/
+
+CREATE TABLE locations(
+	id DECIMAL(10,3) PRIMARY KEY,
+	street_adress VARCHAR(40),
+	postal_code VARCHAR(12),
+	city VARCHAR(30),
+	state_province VARCHAR(25),
+	country VARCHAR(2) --REFERENCES countries(id)
+);
+
+
+CREATE TABLE departments(
+	id INT PRIMARY KEY,
+	name VARCHAR(30) NOT NULL,
+	manager_id INT,
+	location DECIMAL(10,3) REFERENCES locations(id)
+);
+
+CREATE TABLE jobs(
+	id VARCHAR(10) PRIMARY KEY,
+	title VARCHAR(35),
+	min_salary DECIMAL(10,3),
+	max_salary DECIMAL(10,3)
+);
+
+CREATE TABLE employees(
+	id INT PRIMARY KEY,
+	first_name VARCHAR(20) NOT NULL,
+	last_name VARCHAR(25) NOT NULL,
+	email VARCHAR(25) NOT NULL,
+	phone_number VARCHAR(20),
+	hire_date TIMESTAMP,
+	job VARCHAR(10) REFERENCES jobs(id),
+	salary DECIMAL(10,3),
+	commision_pct DECIMAL(5,2),
+	manager_id INT,
+	department INT REFERENCES departments(id),
+	ben_id INT
+);
+
+CREATE TABLE job_history(
+	employee INT REFERENCES employees(id),
+	start_date TIMESTAMP,
+	end_date TIMESTAMP,
+	job VARCHAR(10) REFERENCES jobs(id),
+	department INT REFERENCES departments(id)
+);
+
+/* c) 
+Insertar el registro de cada tabla:
+Considerar cambios a la base de datos para coincidir con la 
+forma de creacion de tablas.
+*/
+-- Regiones
+COPY regions FROM 'C:\M6\EMPLOYEES\REGION.csv' DELIMITER ';' CSV HEADER;
+-- Locaciones
+COPY locations FROM 'C:\M6\EMPLOYEES\LOCATIONs.csv'  DELIMITER ';' CSV HEADER;
+-- Departamentos
+COPY departments FROM 'C:\M6\EMPLOYEES\DEPARTMENTS.csv'  DELIMITER ';' CSV HEADER;
+-- Empleos, arreglando el formato de los salarios
+COPY jobs FROM 'C:\M6\EMPLOYEES\JOBS.csv'  DELIMITER ';' CSV HEADER;
+UPDATE jobs
+SET min_salary = min_salary*1000,
+	max_salary = max_salary*1000;
+ALTER TABLE jobs
+ALTER COLUMN min_salary TYPE INT,
+ALTER COLUMN max_salary TYPE INT;
+-- Empleados, arreglando el formato de los salarios
+DO $$
+BEGIN
+	SET DateStyle = 'ISO, MDY';
+	COPY employees FROM 'C:\M6\EMPLOYEES\EMPLOYEES.csv'  DELIMITER ';' CSV HEADER;
+END $$;
+UPDATE employees
+SET salary = salary*1000;
+ALTER TABLE employees
+ALTER COLUMN salary TYPE INT;
+-- Historial de trabajos, a la cual se le fue quitada la llave primaria
+-- en start date por datos repetidos.
+DO $$
+BEGIN
+	SET DateStyle = 'ISO, MDY';
+	COPY job_history FROM 'C:\M6\EMPLOYEES\JOB_HISTORY.csv'  DELIMITER ';' CSV HEADER;
+END $$;
+
+/* d)
+Actualizar información para la región de Middle East en África, esta
+debe ser de nombre África.
+*/
+UPDATE regions
+SET name = 'África'
+WHERE name = 'Middle East and Africa';

@@ -1,0 +1,256 @@
+/* 
+Módulo 6
+Aprendizaje esperado 3
+*/
+
+/*
+*****************************************************************************************************
+	Ejercicio 1
+*****************************************************************************************************
+*/
+
+/* a)
+Crear una lista de clientes, que contenga el nombre del cliente y su
+dirección.
+*/
+SELECT nombre, direccion from clientes;
+
+/* b)
+Buscar todos los productos cuyo precio sea superior a 1000.
+*/
+SELECT nombre, precio
+FROM productos
+WHERE precio > 1000;
+
+/* c)
+Filtrar la lista de clientes para que no muestre clientes que no
+tengan email.
+*/
+SELECT *
+FROM clientes
+WHERE email IS NOT NULL;
+
+/* d)
+Crear una lista con las boletas emitidas la segunda quincena de
+noviembre.
+*/
+SELECT *
+FROM boletas
+WHERE fecha BETWEEN '2023-11-15' and '2023-11-30';
+
+/* e)
+¿Cuál es el número total de clientes registrados?
+*/
+SELECT COUNT(DISTINCT nombre) AS cantidad_clientes
+FROM clientes;
+
+/* f)
+¿Cuál es el producto más caro? ¿Cuál el más barato?
+*/
+SELECT nombre, precio
+FROM productos
+WHERE precio = (SELECT MAX(precio) from productos)
+OR precio = (SELECT MIN(precio) from productos)
+ORDER BY precio;
+
+/* g)
+¿Cuál es el promedio de unidades vendidas por boleta?
+*/
+SELECT b.numero, ROUND(AVG(d.cantidad),2)
+FROM boletas b
+LEFT JOIN detalle d ON b.numero = d.numero_boleta
+GROUP BY b.numero
+ORDER BY b.numero;
+
+/* h)
+¿Cuantas Boletas han sido emitidas para cada usuario?
+*/
+SELECT c.rut, COUNT(b.numero)
+FROM clientes c
+LEFT JOIN boletas b ON c.rut = b.rut_cliente
+GROUP BY c.rut;
+
+/* i)
+Seleccionar los productos (código y nombre) cuyo nombre NO
+contenga la letra 'o'
+*/
+SELECT codigo, nombre
+FROM productos
+WHERE LOWER(nombre) NOT LIKE '%o%';
+
+/* j)
+Seleccionar los números y fecha de las boletas que sean pares.
+*/
+SELECT numero, fecha
+FROM boletas
+WHERE numero % 2 = 0;
+
+/* k)
+Seleccionar los clientes que no les falte ningún dato. ordenar por rut
+y crear alias para las columnas.
+*/
+SELECT
+	rut AS "R.U.T",
+	nombre AS "Nombre",
+	direccion AS "Dirección",
+	comuna AS "Comuna",
+	fecha_nacimiento AS "Fecha de nacimiento",
+	telefono AS "Teléfono",
+	email AS "Correo electrónico"
+FROM clientes
+WHERE COALESCE(clientes) IS NOT NULL
+ORDER BY rut;
+
+/* l)
+Crear una consulta que calcule el IVA del precio de los productos en
+una nueva columna.
+*/
+ALTER TABLE productos
+ADD COLUMN iva INT;
+
+UPDATE productos
+SET iva = precio*0.19;
+
+/* m)
+ Crear una consulta que calcule la edad de cada cliente. Para mayor
+facilidad, usar sólo el año.
+*/
+SELECT
+	nombre,
+	(CURRENT_DATE-fecha_nacimiento)/365 AS edad
+FROM clientes;
+
+/* n)
+Crear una consulta que devuelva los datos de cliente, pero si hay un
+valor NULL, debe ser reemplazado por "Sin Información"
+*/
+SELECT
+	rut,
+	nombre,
+	COALESCE(direccion, 'Sin Informacion') AS direccion,
+	COALESCE(comuna, 'Sin Informacion') AS comuna,
+	COALESCE(fecha_nacimiento::VARCHAR, 'Sin Informacion') AS fecha_nacimiento,
+	COALESCE(telefono, 'Sin Informacion') AS telefono,
+	COALESCE(email, 'Sin Informacion') AS email
+FROM clientes;
+
+/* o)
+¿Cuál es la cantidad máxima de unidades vendidas por boleta?
+*/
+SELECT MAX(cantidad_boleta)
+FROM (SELECT numero_boleta, SUM(cantidad) AS cantidad_boleta
+	 FROM detalle
+	 GROUP BY numero_boleta);
+
+/* p)
+¿Cuál es la cantidad de Clientes según el primer dígito del rut?
+*/
+SELECT 
+	LEFT(rut,1) AS primer_digito,
+	COUNT(*) AS cantidad_clientes
+FROM clientes
+GROUP BY primer_digito;
+
+/* q)
+ ¿Cuál es la cantidad promedio de productos vendido por boleta, donde
+las ventas totales de la boleta son mayores a 5 unidades?
+*/
+SELECT AVG(cantidad_boleta) AS promedio_cantidad
+FROM
+	(SELECT 
+		numero_boleta,
+		SUM(cantidad) AS cantidad_boleta 
+	FROM detalle GROUP BY numero_boleta)
+WHERE cantidad_boleta > 5;
+
+/*
+*****************************************************************************************************
+	Ejercicio 2
+*****************************************************************************************************
+*/
+
+/* a)
+Desarrolle una consulta que liste el nombre del empleado, el código
+del departamento y la fecha de inicio en la que empezó a trabajar,
+ordenado el resultado por departamento y fecha de inicio, el último
+que entró a trabajar deberá ir primero.
+*/
+SELECT
+	first_name || ' ' || last_name AS "Nombre",
+	department AS "Código departamento",
+	hire_date AS "Fecha inicio"
+FROM employees
+ORDER BY department, hire_date DESC;
+
+/* b)
+Elabore una consulta que muestre todos los registros de la tabla
+EMPLOYEES ordenados por fecha de contratación desde la más nueva
+a la más antigua. 
+*/
+SELECT * FROM employees
+ORDER BY hire_date DESC;
+
+/* c)
+Liste registro de la tabla EMPLOYEES, cuyo JOB_ID es SA_MAN
+ordenados salario.
+*/
+SELECT * FROM employees
+WHERE job = 'SA_MAN'
+ORDER BY salary;
+
+/* d)
+Realice una consulta que muestre los nombres y apellidos de los
+empleados de los departamentos 10, 80 y 20.
+*/
+SELECT
+	first_name AS "Nombre",
+	last_name AS "Apellidos",
+	department AS "Departamento"
+FROM employees
+WHERE
+	department = 10
+	OR department = 80
+	OR department = 20;
+	
+/* e)
+Liste al departamento con mayor y menor salario, además del
+promedio de cada depto.
+*/
+
+SELECT * FROM
+(SELECT 
+	department,
+	MIN(salary) AS "Salario Mínimo",
+	MAX(salary) AS "Salario Máximo",
+	AVG(salary) AS "Saladio Promedio"
+FROM employees
+GROUP BY department)
+ORDER BY "Saladio Promedio";
+
+/* f)
+Desarrolle una consulta que liste el código del departamento con
+título “Código del departamento”, el código de trabajo con título
+“Puesto de Trabajo” y que cuente los empleados por departamentos y
+puesto de trabajo, en donde el puesto de trabajo tenga solamente un
+empleado en la empresa.
+*/
+SELECT 
+	department AS "Código del departamento",
+	job AS "Puesto de Trabajo",
+	COUNT(*)
+FROM employees
+GROUP BY department, job
+HAVING COUNT(*)=1;
+
+/* g)
+Elabore una consulta que muestre el código del departamento con
+título “Código del departamento”, que cuente los empleados por
+departamento de aquellos departamentos que tengan más de 10
+empleados.
+*/
+SELECT 
+	department AS "Código del departamento",
+	COUNT(*)
+FROM employees
+GROUP BY department
+HAVING COUNT(*)>10;

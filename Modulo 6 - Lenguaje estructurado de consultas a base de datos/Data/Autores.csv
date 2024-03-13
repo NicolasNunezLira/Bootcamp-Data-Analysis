@@ -1,0 +1,21 @@
+id,nombre,fecha_formacion,id_genero
+1,The Beatles,1960-08-01,1
+2,Led Zeppelin,1968-07-01,2
+3,Queen,1970-06-27,3
+4,Pink Floyd,1965-02-01,2
+5,Nirvana,1987-01-01,4
+6,Metallica,1981-10-28,2
+7,AC/DC,1973-11-01,2
+8,U2,1976-09-25,3
+9,The Rolling Stones,1962-07-12,1
+10,Guns N Roses,1985-06-06,2
+11,Radiohead,1985-02-16,3
+12,Coldplay,1996-01-16,3
+13,Foo Fighters,1994-02-04,4
+14,Red Hot Chili Peppers,1983-02-13,4
+15,The Who,1964-02-01,1
+16,Green Day,1986-08-01,4
+17,Black Sabbath,1968-11-09,2
+18,The Doors,1965-07-01,1
+19,Pearl Jam,1990-10-22,4
+20,R.E.M.,1980-04-05,3

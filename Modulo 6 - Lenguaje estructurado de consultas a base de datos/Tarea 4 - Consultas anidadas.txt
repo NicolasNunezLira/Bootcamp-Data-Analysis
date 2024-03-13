@@ -1,0 +1,179 @@
+/* 
+Módulo 6
+Aprendizaje esperado 4
+*/
+
+/*
+*****************************************************************************************************
+	Ejercicio 1
+*****************************************************************************************************
+*/
+
+/* a)
+Usando subquerys, obtenga el valor total de los productos vendidos
+en la tabla detalle (cantidad *precio).
+*/
+SELECT SUM(sum) AS "Total venta"
+FROM (
+	SELECT SUM(p.precio*d.cantidad)
+	FROM detalle d
+	LEFT JOIN productos p ON d.codigo_producto = p.codigo
+	GROUP BY d.codigo_producto
+);
+
+/* b)
+Usando el cálculo anterior, agrupe los datos para mostrar el total por
+boleta.
+*/
+SELECT 
+	d.numero_boleta,
+	SUM(p.precio*d.cantidad) AS "Total por boleta"
+FROM detalle d
+LEFT JOIN productos p ON d.codigo_producto = p.codigo
+GROUP BY d.numero_boleta;
+
+/* c)
+Qué productos están por encima del precio promedio de todos los
+productos.
+*/
+SELECT codigo, nombre, precio
+FROM productos
+WHERE precio > (
+	SELECT AVG(precio)
+	FROM productos
+);
+
+/* d)
+Crear una lista que traiga el número de boleta, y la cantidad de
+productos distintos comprados.
+*/
+SELECT 
+	numero_boleta,
+	COUNT(DISTINCT codigo_producto) AS "Productos distintos"
+FROM detalle
+GROUP BY numero_boleta;
+
+/* e)
+Crear una lista que traiga el número de boleta, y la cantidad de
+unidades compradas (entre todos los productos de la boleta).
+*/
+SELECT 
+	numero_boleta,
+	SUM(cantidad) AS "Cantidad productos"
+FROM detalle
+GROUP BY numero_boleta;
+
+/* f)
+Crear una consulta que cree una lista de los usuarios que nunca han
+comprado.
+*/
+SELECT *
+FROM clientes
+WHERE rut NOT IN (
+	SELECT DISTINCT rut_cliente
+	FROM boletas
+);
+
+/* g)
+Listar los productos, su precio, y la cantidad vendida si no se ha
+vendido, agregue un 0.
+*/
+SELECT 
+	p.nombre,
+	p.precio,
+	COALESCE(SUM(d.cantidad),0) AS "Cantidad vendida"
+FROM productos p
+LEFT JOIN detalle d ON p.codigo = d.codigo_producto
+GROUP BY p.nombre, p.precio;
+
+
+/*
+*****************************************************************************************************
+	Ejercicio 2
+*****************************************************************************************************
+*/
+
+/* a)
+Desarrolle una consulta que liste el apellido, el nombre y salario del
+empleado con el salario mayor de todos los departamentos.
+*/
+SELECT
+	department,
+	last_name AS "Apellido",
+	first_name AS "Nombre",
+	salary AS "Salario"
+FROM employees
+WHERE salary = (SELECT MAX(salary) FROM employees)
+
+/* b)
+Desarrolle una consulta que liste el código de departamento, nombre,
+apellido y salario de únicamente de los empleados con máximo salario
+en cada departamento.
+*/
+SELECT
+	department AS "Código departamento",
+	first_name AS "Nombre",
+	last_name AS "Apellidos",
+	salary AS "Salario"
+FROM employees
+WHERE (department, salary) IN
+	(SELECT department, MAX(salary)
+	FROM employees
+	GROUP BY department);
+
+/* c)
+Encuentra todos los registros en la tabla empleados que contengan un
+valor que ocurre dos veces en una columna dada
+*/
+-- Se considerará la columna apellidos para contar la repeticion
+SELECT *
+FROM employees
+WHERE last_name IN (
+	SELECT last_name
+	FROM employees
+	GROUP BY last_name
+	HAVING COUNT(last_name) = 2
+)
+
+/* d)
+Realice una consulta que liste los empleados que están en
+departamentos que tienen menos de 10 empleados.
+*/
+SELECT *
+FROM employees
+WHERE department IN (
+	SELECT department
+	FROM employees
+	GROUP BY department
+	HAVING COUNT(department) < 10
+)
+
+/* e)
+Desarrolle una consulta que muestre el mayor salario entre los
+empleados que trabajan en el departamento 30
+*/
+SELECT MAX(salary) AS "Máximo Salario"
+FROM employees
+WHERE department = 30;
+
+/* f)
+Elabore una consulta que muestre los departamentos en donde no
+exista ningún empleado.
+*/
+SELECT d.*
+FROM departments d
+WHERE NOT EXISTS (SELECT 1 FROM employees e WHERE e.department = d.id);
+
+/* g)
+Desarrolle una consulta que muestre a todos los empleados que no
+estén trabajando en el departamento 30 y que ganen más que todos
+los empleados que trabajan en el departamento 30.
+*/
+SELECT *
+FROM employees
+WHERE
+	department != 30
+	AND salary > (
+	SELECT MAX(salary)
+	FROM employees
+	WHERE department = 30);

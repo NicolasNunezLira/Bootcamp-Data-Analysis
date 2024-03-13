@@ -1,0 +1,283 @@
+/* 
+Módulo 6
+Aprendizaje esperado 6
+*/
+
+/*
+*****************************************************************************************************
+	Ejercicio 1
+*****************************************************************************************************
+*/
+
+/* a)
+La primera función que crearemos, será generar un listado de venta
+de los productos. Una función que reciba como parámetro el código
+del producto, y devuelva las unidades vendidas totales.
+*/
+CREATE OR REPLACE FUNCTION unidades_vendidas_producto(cod INT)
+RETURNS BIGINT AS
+$$
+DECLARE
+resultado BIGINT;
+BEGIN
+	SELECT sum INTO resultado FROM(
+		SELECT
+			p.codigo AS codigo,
+			COALESCE(SUM(d.cantidad),0) AS sum
+		FROM
+			productos p
+			LEFT JOIN detalle d ON d.codigo_producto = p.codigo
+			GROUP BY p.codigo
+	) WHERE codigo = cod;
+	
+	IF resultado IS NULL THEN
+		RETURN 0;
+	ELSE
+		RETURN resultado;
+	END IF;
+END;
+$$ LANGUAGE plpgsql
+
+-- Testeo
+--SELECT unidades_vendidas_producto(106);
+
+/* b)
+Ahora haremos algo parecido, crearemos una función que reciba como
+parámetro una boleta, y nos devuelva el nombre de la persona a la
+que pertenece, la fecha, y su subtotal, iva y total.
+*/
+CREATE OR REPLACE FUNCTION detalles_boleta(num INT)
+RETURNS TABLE (
+	"Numero boleta" INT,
+	"Nombre cliente" VARCHAR,
+	"Fecha" DATE,
+	"Subtotal" BIGINT,
+	"IVA" NUMERIC,
+	"Total" NUMERIC) AS
+$$
+DECLARE
+resultado BIGINT;
+BEGIN
+	RETURN QUERY
+	SELECT
+		b.numero,
+		c.nombre,
+		b.fecha,
+		SUM(d.cantidad*p.precio) AS subtotal,
+		SUM(d.cantidad*p.precio*0.19) AS iva,
+		SUM(d.cantidad*p.precio*1.19) AS total
+	FROM
+		clientes c
+		JOIN boletas b ON c.rut = b.rut_cliente
+		JOIN detalle d ON d.numero_boleta = b.numero
+		JOIN productos p ON d.codigo_producto = p.codigo
+	GROUP BY b.numero, b.fecha, c.nombre
+	HAVING b.numero = num;
+END;
+$$
+LANGUAGE plpgsql
+
+-- Testeo
+-- SELECT * FROM detalles_boleta(3)
+
+/* c)
+Ahora, crearemos una función que reciba dos fechas, inicial y final, y
+devuelva el monto vendido entre esas dos fechas. En caso que la
+segunda fecha sea menor a la primera, se debe generar un mensaje de
+error.
+*/
+CREATE OR REPLACE FUNCTION total_entre_fechas(inicio DATE, fin DATE)
+RETURNS NUMERIC AS
+$$
+DECLARE total NUMERIC;
+BEGIN
+	IF fin < inicio THEN
+		RAISE EXCEPTION 'La fecha de inicio debe ser anterior a la fecha de fin.';
+	END IF;
+	SELECT SUM(tot) INTO total
+	FROM
+		(SELECT
+			b.fecha as fecha,
+			SUM(p.precio*d.cantidad*1.19) as tot
+		FROM 
+			productos p
+			JOIN detalle d ON p.codigo = d.codigo_producto
+			JOIN boletas b ON b.numero = d.numero_boleta
+		GROUP BY b.fecha)
+	WHERE fecha BETWEEN inicio and fin;
+	RETURN total;
+END;
+$$
+LANGUAGE plpgsql
+
+-- Testeo del error
+--SELECT total_entre_fechas('2023-11-07','2023-11-06')
+-- Testeo del resultado
+--SELECT total_entre_fechas('2023-11-04','2023-11-06')
+
+/* d)
+Crear una función, que ingrese el rut, y me devuelva “SI” o “NO”
+dependiendo de si la persona ha comprado alguna vez.
+*/
+CREATE OR REPLACE FUNCTION ha_comprado(rut VARCHAR(10))
+RETURNS VARCHAR(2) AS
+$$
+DECLARE compras INT;
+BEGIN
+	SELECT COUNT(*) INTO compras
+	FROM boletas
+	WHERE rut_cliente = rut;
+	
+	IF compras >0 THEN
+		RETURN 'Si';
+	ELSE
+		RETURN 'No';
+	END IF;
+END;
+$$
+LANGUAGE plpgsql
+
+-- Testeo
+-- SELECT ha_comprado('87654321-0')
+
+/* e)
+Por último, para la base de dato de compras, crearemos una función
+que ingrese productos: recibirá código, nombre y precio. Si el código
+o el nombre ya existe, devolverá un texto “Ya existe producto”, si el
+producto se ingresa correctamente se devolverá “Producto ingresado
+con éxito”.
+*/
+CREATE OR REPLACE FUNCTION ingresar_producto(cod INT, nom VARCHAR, valor INT)
+RETURNS VARCHAR AS
+$$
+DECLARE cont_nombre INT;
+DECLARE cont_codigo INT;
+BEGIN
+	SELECT COUNT(nombre) INTO cont_nombre
+	FROM productos 
+	WHERE nombre = nom;
+	
+	SELECT COUNT(codigo) INTO cont_codigo
+	FROM productos
+	WHERE codigo = cod;
+	
+	IF (cont_codigo>0 OR cont_nombre>0) THEN
+		RETURN 'Ya existe producto.';
+	ELSE
+		INSERT INTO productos(codigo, nombre, precio)
+		VALUES (cod, nom, valor);
+		RETURN 'Producto ingresado con éxito.';
+	END IF;
+END;
+$$
+LANGUAGE plpgsql
+
+-- Testeo con productos ya ingresado ya sea por nombre o codigo
+--SELECT ingresar_producto(121,'Yogur',600)
+--SELECT ingresar_producto(101,'Cerveza',1990)
+-- Testeo con producto no existente
+--SELECT ingresar_producto(121,'Cerveza',1990);
+--SELECT * FROM productos WHERE codigo=121;
+
+
+/*
+*****************************************************************************************************
+	Ejercicio 2
+*****************************************************************************************************
+*/
+
+/* a)
+Escriba una función que muestre el código de departamento y cantidad
+de empleados, para aquellos departamentos que tengan más de X
+empleados. (siendo X el parámetro de entrada.).
+*/
+CREATE OR REPLACE FUNCTION dpto_empleados_more_x(x INT)
+RETURNS TABLE (id_departamento INT, cant_empleados BIGINT) AS
+$$
+BEGIN
+	RETURN QUERY (
+		SELECT 
+			department AS "Código departamento",
+			COUNT(*) AS "Cantidad empleados"
+		FROM employees
+		GROUP BY department
+		HAVING COUNT(*) > x
+	);
+END;
+$$
+LANGUAGE plpgsql;
+
+/* b)
+Escriba una función que muestre a todos los empleados que no estén
+trabajando en el departamento X, y que ganen más que todos los
+empleados que trabajan en el departamento Y
+*/
+CREATE OR REPLACE FUNCTION comparacion_empleados(x INT,y INT)
+RETURNS TABLE (
+	id INT,
+	first_name VARCHAR,
+	last_name VARCHAR,
+	department INT,
+	salary INT
+) AS
+$$
+BEGIN
+	RETURN QUERY(
+		SELECT
+			e.id AS "Código",
+			e.first_name AS "Nombre",
+			e.last_name AS "Apellido",
+			e.department AS "Departamento",
+			e.salary AS "Salario"
+		FROM employees e
+		WHERE
+			e.department != x
+			AND e.salary > ALL (
+				SELECT f.salary
+				FROM employees f
+				WHERE f.department = y
+			)
+	);
+END;
+$$
+LANGUAGE plpgsql
+
+/* c)
+Creamos una función que reciba dos enteros y retorne la suma de los
+mismos.
+*/
+CREATE OR REPLACE FUNCTION suma(x INT, y INT)
+RETURNS INT AS
+$$
+BEGIN
+	RETURN x+y;
+END;
+$$
+LANGUAGE plpgsql;
+
+/* d)
+Teniendo la tabla usuarios:
+create table usuarios (
+ nombre varchar(30),
+ clave varchar(10)
+);
+Insertamos un conjunto de registros:
+insert into usuarios (nombre, clave) values ('Marcelo','Boca');
+insert into usuarios (nombre, clave) values ('JuanPerez','Juancito');
+insert into usuarios (nombre, clave) values ('Susana','River');
+insert into usuarios (nombre, clave) values ('Luis','River');
+Con lo anterior, creamos una función que reciba una cadena con el nombre
+de usuario y retorne la clave de dicho usuario
+*/
+CREATE OR REPLACE FUNCTION clave(nom VARCHAR(30))
+RETURNS VARCHAR(10) AS
+$$
+DECLARE code VARCHAR(10);
+BEGIN
+	SELECT clave INTO code
+	FROM usuarios
+	WHERE nombre = nom;
+	RETURN code;
+END;
+$$
+LANGUAGE plpgsql

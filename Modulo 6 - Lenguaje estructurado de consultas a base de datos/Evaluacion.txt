@@ -1,0 +1,231 @@
+-- Creación de la base de datos
+CREATE DATABASE disqueria;
+
+-- Conección a la base de datos (psql)
+--\c disqueria;
+
+-- Creación de tabla Generos
+CREATE TABLE IF NOT EXISTS Generos (
+	id SERIAL PRIMARY KEY,
+	nombre VARCHAR(50) UNIQUE NOT NULL
+);
+
+-- Creación de tabla Autores
+CREATE TABLE IF NOT EXISTS Autores (
+	id SERIAL PRIMARY KEY,
+	nombre VARCHAR(50) UNIQUE NOT NULL,
+	fechaFormacion DATE CHECK (fechaFormacion > '1900-01-01'),
+	idGenero INTEGER REFERENCES Generos(id)
+);
+
+-- Creación de tabla Discos
+CREATE TABLE IF NOT EXISTS Discos (
+	id SERIAL PRIMARY KEY,
+	nombre VARCHAR(50) NOT NULL,
+	duracion INTEGER NOT NULL,
+	idGenero INTEGER REFERENCES Generos(id),
+	idAutor INTEGER REFERENCES Autores(id)
+);
+
+-- Creación de tabla Formatos
+CREATE TABLE IF NOT EXISTS Formatos (
+	id SERIAL PRIMARY KEY,
+	nombre VARCHAR(50) NOT NULL
+);
+
+-- Creación de tabla Productos
+CREATE TABLE IF NOT EXISTS Productos (
+	codigo SERIAL PRIMARY KEY,
+	idDisco INTEGER REFERENCES Discos(id),
+	idFormato INTEGER REFERENCES Formatos(id),
+	precio INTEGER NOT NULL,
+	stock INTEGER NOT NULL
+);
+
+-- Inserción de datos a las tablas
+-- Datos cargados a mano.
+
+-- Revisión de los datos cargados correctamente
+SELECT * FROM generos;
+SELECT * FROM autores;
+SELECT * FROM discos;
+SELECT * FROM formatos;
+SELECT * FROM productos;
+
+-- Consulta 4.
+/*
+Existe un disco repetido en la tabla “Discos”. Crear una Query para
+detectarlo. Cuál es?
+*/
+SELECT nombre,COUNT(*)
+FROM discos
+GROUP BY nombre HAVING COUNT(*)>1;
+
+-- Consulta 5
+/*
+Ahora que sabemos qué disco está repetido, cómo sabremos cual
+eliminar? Crear una Query para analizar este punto.
+*/
+SELECT d.id, d.nombre, COUNT(p.codigo)
+FROM productos p
+RIGHT JOIN discos d
+ON d.id = p.iddisco
+WHERE d.nombre = 'Californication'
+GROUP BY d.id;
+/*
+Dado que los valores son exactamente iguales en todas las columnas 
+pero el disco con código 29 no posee elementos en productos, se eliminará
+esa instancia
+*/
+ 
+
+
+-- Consulta 6
+/*
+Según el análisis de la pregunta anterior, elimine el disco repetido.
+*/
+DELETE FROM discos WHERE id=29;
+
+-- Consulta 7
+/*
+¿Cuantos discos hay?
+*/
+SELECT COUNT(*) as numero_discos FROM discos;
+
+-- Consulta 8
+/*
+Cree una lista de artistas, y entregue la cantidad de discos de cada uno.
+*/
+SELECT a.nombre, COUNT(d.idautor) as discos_by_autor
+FROM autores a LEFT JOIN discos d ON a.id = d.idautor
+GROUP BY a.id, a.nombre;
+
+-- Consulta 9
+/*
+Crear una lista de géneros, indicando la cantidad de discos que
+pertenecen a cada uno. Si hay géneros que no tienen discos, debe
+aparecer un 0.
+*/
+SELECT g.nombre, COUNT(d.idgenero) as discos_by_genero
+FROM generos g LEFT JOIN discos d ON g.id = d.idgenero
+GROUP BY g.id, g.nombre;
+
+-- Consulta 10
+/*
+Indique cuantos discos distintos hay en bodega (sin importar el
+formato).
+*/
+SELECT COUNT(DISTINCT d.nombre) as discos_en_bodega
+FROM discos d;
+
+-- Consulta 11
+/*
+¿Cual es, en promedio, el formato más caro?
+*/
+SELECT f.nombre, ROUND(AVG(p.precio),2) AS precio_promedio
+FROM productos p RIGHT JOIN formatos f ON p.idformato=f.id
+GROUP BY f.nombre ORDER BY AVG(p.precio) DESC LIMIT 1;
+
+-- Consulta 12
+/*
+Indique cual es el disco más caro que esté en formato vinilo y que sea
+de rock.
+*/
+SELECT d.nombre, p.precio
+FROM discos d LEFT JOIN productos p ON d.id = p.iddisco
+WHERE p.idformato=2 ORDER BY p.precio DESC LIMIT 1;
+
+-- Consulta 13
+/*
+Crear una lista de cada producto, indicando el nombre, el género, el
+artista, el formato, el precio y el stock. Ordenado de más caro a más
+barato y por formato.
+*/
+SELECT d.nombre, g.nombre, a.nombre, f.nombre, p.precio, p.stock
+FROM productos p
+JOIN discos d ON d.id = p.iddisco
+JOIN generos g ON g.id = d.idgenero
+JOIN autores a ON a.id = d.idautor
+JOIN formatos f ON f.id = p.idformato
+ORDER BY p.idformato, p.precio DESC;
+
+-- Consulta 14
+/*
+¿Cuál es el disco que más se repite en los productos?
+*/
+SELECT d.nombre, SUM(p.stock) as total_productos
+FROM discos d
+JOIN productos p ON d.id = p.iddisco
+GROUP BY d.id ORDER BY SUM(p.stock) DESC LIMIT 1;
+ 
+-- Consulta 15
+/*
+Indique cuales son los artistas que se formaron en los años 80 y
+cuanto suman sus productos en bodega. ¿Cuál es el que más dinero
+valen sus productos almacenados?
+*/
+SELECT 
+	a.nombre,
+	--SUM(p.stock) as cantidad_almacenada,
+	SUM(p.stock*p.precio) as valor_almacenado
+FROM productos p
+JOIN discos d ON d.id = p.iddisco
+JOIN autores a ON d.idautor=a.id
+WHERE
+	EXTRACT(YEAR FROM a.fechaformacion) BETWEEN 1980 AND 1989
+GROUP BY a.nombre
+ORDER BY SUM(p.stock*p.precio) DESC;
+
+-- Consulta 16
+/*
+¿Cuál es el valor de toda la bodega, sin considerar el dinero de los
+productos digitales?
+*/
+SELECT SUM(precio*stock) as total_bodega
+FROM productos
+WHERE idformato != 4;
+
+-- Consulta 17
+/*
+Un ladrón entró a la bodega y se llevó todos los cd de red hot chili
+peppers y guns n roses del estante. ¿Cuánto dinero perdió el negocio?
+*/
+SELECT SUM(p.precio*p.stock) as total_robado
+FROM productos p
+JOIN discos d on d.id = p.iddisco
+JOIN autores a on a.id = d.idautor
+WHERE a.nombre = 'Guns N Roses' 
+	or a.nombre = 'Red Hot Chili Peppers';
+
+
+-- Consulta 18
+/*
+Se está pensando en comprar más material para la bodega y así
+diversificar la colección. ¿De qué géneros musicales debería
+comprarse? Al mismo tiempo, se quiere liquidar stock. ¿Qué productos
+debería liquidarse?
+*/
+-- Generos a comprar
+SELECT nombre 
+FROM (
+	SELECT g.nombre, COUNT(p.stock) as material_by_genero
+	FROM generos g
+	LEFT JOIN discos d ON g.id = d.idgenero
+	LEFT JOIN productos p ON d.id = p.iddisco
+	GROUP BY g.nombre ORDER BY COUNT(p.stock) ASC
+) WHERE material_by_genero = 0;
+
+-- Productos a liquidar, considerando los que poseen mucho o poco
+-- stock en comparación a la media y un error de 1.2 desviacion estandar
+SELECT * FROM (
+	SELECT d.nombre as album, a.nombre as artista, f.nombre as formato, p.stock
+	FROM generos g
+	JOIN discos d ON g.id = d.idgenero
+	JOIN productos p ON d.id = p.iddisco
+	JOIN formatos f ON f.id = p.idformato
+	JOIN autores a ON a.id = d.idautor
+	--GROUP BY d.nombre, f.nombre
+	ORDER BY p.stock DESC
+) WHERE stock > (SELECT AVG(stock)+1.2*STDDEV(stock) FROM productos)
+	or stock < (SELECT AVG(stock)-1.2*STDDEV(stock) FROM productos)
+;

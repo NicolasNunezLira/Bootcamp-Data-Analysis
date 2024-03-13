@@ -1,0 +1,234 @@
+/* 
+Módulo 6
+Aprendizaje esperado 5
+*/
+
+/*
+*****************************************************************************************************
+	Ejercicio 2
+*****************************************************************************************************
+*/
+
+/* a)
+Para la tabla de detalle, obtener la lista de productos vendido por
+boleta, pero esta vez mostrar el nombre del producto y el monto
+vendido del producto.
+*/
+SELECT 
+	p.nombre,
+	COALESCE(SUM(p.precio*d.cantidad),0) AS "Total vendido"
+FROM productos p
+LEFT JOIN detalle d ON p.codigo = d.codigo_producto
+GROUP BY p.nombre
+
+/* b)
+Crear una lista de usuarios, y agregar la cantidad de dinero gastado
+en compras. Si no ha comprado nunca, se le debe agregar un 0.
+*/
+SELECT
+	c.nombre AS "Nombre",
+	COALESCE(SUM(p.precio*d.cantidad),0) AS "Total gastado"
+FROM
+	clientes c
+	LEFT JOIN boletas b ON c.rut = b.rut_cliente
+	LEFT JOIN detalle d ON b.numero = d.numero_boleta
+	LEFT JOIN productos p ON d.codigo_producto = p.codigo
+GROUP BY c.nombre;
+
+/* c)
+Crear la lista de Boletas, y agregar el nombre del cliente a quien le
+pertenece. Usar número, fecha, nombre cliente, email cliente. Si el
+cliente no tiene email, remplazarlo por “Sin información”
+*/
+SELECT
+	b.numero AS "N° boleta",
+	b.fecha AS "Fecha",
+	c.nombre AS "Nombre cliente",
+	COALESCE(c.email, 'Sin información') AS "Email cliente"
+FROM
+	boletas b
+	JOIN clientes c ON c.rut = b.rut_cliente;
+	
+/* d)
+Crear una consulta que cree la lista de productos (nombre) y la
+cantidad de veces que se ha vendido (sin importar las unidades). Si
+no se ha vendido nunca, rellenar con un 0.
+*/
+SELECT 
+	p.nombre,
+	COUNT(b.numero) AS "Veces vendidas"
+FROM
+	productos p
+	LEFT JOIN detalle d ON p.codigo = d.codigo_producto
+	LEFT JOIN boletas b ON b.numero = d.numero_boleta
+GROUP BY p.nombre;
+
+/* e)
+Crear una consulta que enumere la lista de productos y la cantidad
+de unidades vendidas de cada una. Rellenar con 0 las que no se han
+vendido.
+*/
+SELECT
+	p.nombre,
+	COALESCE(SUM(d.cantidad),0) AS "Unidades vendidas"
+FROM
+	productos p
+	LEFT JOIN detalle d ON d.codigo_producto = p.codigo
+GROUP BY p.nombre;
+
+/* f)
+Mostrar los datos de una boleta (elegir un número): Nro Boleta y
+Fecha; Rut, Nombre, Dirección; Detalle IVA y Total.
+*/
+SELECT 
+	b.numero,
+	b.fecha,
+	c.rut,
+	c.nombre,
+	COALESCE(c.direccion,'Sin información'),
+	SUM(d.cantidad*p.precio*0.19) AS "IVA",
+	SUM(d.cantidad*p.precio*1.19) AS "Total"
+FROM
+	boletas b
+	JOIN clientes c ON c.rut = b.rut_cliente
+	JOIN detalle d ON d.numero_boleta = b.numero
+	JOIN productos p ON d.codigo_producto = p.codigo
+GROUP BY b.numero, b.fecha, c.rut, c.nombre, c.direccion;
+
+/* g)
+Crear una lista de boletas, donde aparezca los datos del cliente, la
+cantidad de productos distintos vendidos y el subtotal pagado, sólo
+si el subtotal es mayor a 50.000.
+*/
+SELECT * FROM (
+	SELECT
+		b.numero,
+		b.fecha,
+		c.rut,
+		c.nombre,
+		COALESCE(c.direccion,'Sin información'),
+		SUM(d.cantidad) AS "Cantidad productos",
+		SUM(d.cantidad*p.precio) AS "Subtotal"
+	FROM
+		boletas b
+		JOIN clientes c ON c.rut = b.rut_cliente
+		JOIN detalle d ON d.numero_boleta = b.numero
+		JOIN productos p ON d.codigo_producto = p.codigo
+	GROUP BY b.numero, b.fecha, c.rut, c.nombre, c.direccion
+)
+WHERE "Subtotal">50000;
+
+
+*
+*****************************************************************************************************
+	Ejercicio 2
+*****************************************************************************************************
+*/
+
+/* a)
+Desarrolle una consulta que liste el código, nombre y apellido de los
+empleados y sus respectivos jefes con título Empleado y Jefe
+*/
+SELECT
+	e.id AS "Codigo empleado",
+	e.first_name || ' ' || e.last_name AS "Nombre Empleado",
+	j.id AS "Codigo jefe",
+	j.first_name || ' ' || j.last_name AS "Nombre Jefe"
+FROM
+	employees e
+	JOIN employees j ON e.manager_id = j.id;
+	
+/* b)
+Desarrolle una consulta que liste los países por región, los datos que
+debe mostrar son: el código de la región y nombre de la región con los
+nombres de sus países.
+*/
+/*
+No exite la tabla de paises pues no fue enviado el archivo, pero en caso
+de existir la consultaria sería algo asi
+*/
+/*
+SELECT r.id, r.name, c.name
+FROM
+	regions r
+	JOIN countries c ON r.id = c.region;
+*/
+
+/* c)
+Realice una consulta que muestre el código, nombre, apellido, inicio
+y fin del historial de trabajo de los empleados.
+*/
+SELECT
+	e.id AS "Código",
+	e.first_name AS "Nombre",
+	e.last_name AS "Apellido",
+	jh.start_date AS "Inicio historial",
+	jh.end_date AS "Fin historial"
+FROM
+	employees e
+	JOIN job_history jh ON jh.employee = e.id;
+	
+/* d)
+Elabore una consulta que liste nombre del trabajo y el salario de los
+empleados que son mánager, cuyo código es 100 o 125 y cuyo salario
+sea mayor de 6000.
+*/
+SELECT
+	e.first_name||' '||e.last_name AS "Nombre",
+	j.title AS "Trabajo",
+	e.salary
+FROM employees e
+JOIN jobs j ON e.job = j.id
+WHERE
+	e.id IN (SELECT manager_id FROM employees)
+	AND (e.id = 100 OR e.id = 125)
+	AND e.salary > 6000;
+	
+/* e)
+Realice una consulta que muestre el nombre y apellido de los
+empleados que trabajan para departamentos que están localizados en
+países cuyo nombre comienza con la letra C, que muestre el nombre
+del país
+*/
+/* Dado que no poseemos la tabla countries, buscaremos que el pais
+inicie con la letra c en el codigo de pais de la columna country
+de la tabla locations.
+En caso de que la tabla faltante faltaría un join a dicha tabla,
+pero la logica de la consulta es la misma.
+*/
+SELECT
+	e.first_name AS "Nombre",
+	e.last_name AS "Apellido",
+	l.country AS "Código país"
+FROM
+	employees e
+	JOIN departments d ON e.department = d.id
+	JOIN locations l ON d.location = l.id
+WHERE LEFT(l.country,1)='C';
+
+/* f)
+Desarrolle una consulta donde seleccione el código del empleado
+cuyo alias será código, el apellido concatenado con el nombre de
+empleado pero separados por coma(,) cuyo alias será Nombres, el
+email donde su inicial esté en mayúscula y todos posean el dominio
+de @eisi.ues.edu.sv, es decir debe ir concatenado con ese dominio
+cuyo alias es email, además que aparezca si el número telefónico está
+almacenado en el campo de esta manera 515.123.4567 deberá
+convertirlo al formato siguiente formato (515)-123-4567, si posee un
+número telefónico con esta longitud 011.44.1344.429268, es decir
+una longitud mayor al formato anterior, deberá aparecer en el formato
+siguiente (011-44-1344-429268). Funciones que puede hacer uso para este
+ejercicio LENGTH, SUBSTR. Dicha información deberá ir ordenada
+por código de empleado.
+*/
+SELECT
+	id AS "Código",
+	last_name||', '||first_name AS "Nombres",
+	UPPER(SUBSTR(email,1,1))||LOWER(SUBSTR(email,2,LENGTH(email)))||'@eisi.ues.edu.sv' AS "Email",
+	CASE 
+		WHEN LENGTH(phone_number)=12 THEN
+			'('||SUBSTR(phone_number,1,3)||')-'||SUBSTR(phone_number,5,3)||'-'||SUBSTR(phone_number,9,4)
+		WHEN LENGTH(phone_number)>12 THEN
+			SUBSTR(phone_number,1,3)||'-'||SUBSTR(phone_number,5,2)||'-'||SUBSTR(phone_number,8,4)||'-'||SUBSTR(phone_number,13)
+	END AS "Teléfono"
+FROM employees
